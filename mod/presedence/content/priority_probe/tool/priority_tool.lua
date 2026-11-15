@@ -1,9 +1,10 @@
 -- Priority Probe: the tool while it is in hand. Stage 2 (read mode): the road end nearest the cursor
 -- is described in a tooltip and, on a click, in the game log (crash_dump\stdout.txt, lines "[presedence]").
--- The other modes are placeholders until the write path is proven.
+-- Stage 3: Priority / Give way / Default set the precedence (YES / NO / AUTO) of that road end (build.lua).
 
 local builtin = ug_require "::/gui/main/builtin.lua"
 local react = ug_require "::/gui/main/react.lua"
+local Build = require "presedence::/priority_probe/tool/build.lua"
 
 local CT = api.type.ComponentType
 local MODES = {
@@ -76,6 +77,9 @@ local recipe = react.RegisterRecipe("PresedencePriorityTool", function(params)
 
 		react.onStep(function()
 			local time = api.util.getApplicationTime()
+			Build.tick(time, say)
+			-- nothing is looked up while a build is on its way or has just landed (a fresh entity is fatal to ask about)
+			if Build.busy(time) then hit:set(nil); return end
 			if time < refreshAt:get() then return end
 			refreshAt:set(time + REFRESH)
 			local ok, err = pcall(function()
@@ -104,13 +108,15 @@ local recipe = react.RegisterRecipe("PresedencePriorityTool", function(params)
 				onProcessMouseEvent = function(event)
 					if event.type == api.gui.mouse.Event.Type.Pressed and event.button == 0 then
 						local h = hit:get()
-						if h ~= nil then
+						if h ~= nil and not Build.busy(api.util.getApplicationTime()) then
 							local mode = MODES[tonumber((params.getCurrentParams() or {}).pp_mode) or 1] or MODES[1]
 							local ok, err = pcall(function()
 								if mode.id == "read" then
 									say("READ " .. tostring(describe(h)))
 								else
-									say(mode.id .. ": write not implemented yet; " .. tostring(describe(h)))
+									say(mode.id .. ": " .. tostring(describe(h)))
+									Build.send(h, Build.VALUES[mode.id], say)
+									hit:set(nil)
 								end
 							end)
 							if not ok then say("click failed: " .. tostring(err):match("^[^\r\n]*")) end

@@ -5,6 +5,7 @@
         "presedence.script.tl",
         "priority_probe/menu/menu.script.lua",
         "priority_probe/menu/priority_tool.res.lua",
+        "priority_probe/tool/build.lua",
         "priority_probe/tool/priority_tool.lua",
         "priority_probe/tool_images/priority_tool@2x.tga",
         "priority_probe/tool_images/priority_tool_preview@2x.tga"

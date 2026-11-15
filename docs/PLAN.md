@@ -1,6 +1,6 @@
 # Precedence Probe — plan
 
-Status (2026-11-15): read-mode tool written (ROADS > Tools, untested in game). Skeleton verified in game (logs `[presedence] skeleton loaded, build 40425`). Console probes written, not yet run.
+Status (2026-11-15): read mode verified in game (tool in ROADS > Tools works, all untouched road ends read precedence value 2). Write mode (stage 3) written, untested. Skeleton verified in game (logs `[presedence] skeleton loaded, build 40425`). Console probes written, not yet run.
 
 ## Goal
 
@@ -24,6 +24,19 @@ Find out whether intersection priority (right of way) can be forced on Transport
    - BRT is plain Lua (`.lua`), not Teal, and uses `mod.json` `runFn` / `postRunFn` only for load-time hooks; tools need none.
 2. **Write command in TF3 is `api.cmd.makeWorldBuildProposalCmd(proposal, context, ignoreErrors, playerInitiated)`** sent with `api.cmd.sendCommand`, not the TF2-style `make.buildProposal`.
 3. `BaseEdgeStreet.precedenceNode0/1` doc strings: "Precedence preference at first/second node". `Edge.precedence : boolean` is a field of the `Edge` record.
+
+## Read mode results (2026-11-15, Road_test.sav)
+
+- Menu entry, hover tooltip, clicks and the mode setting all work; no errors in stdout.txt.
+- Every road end read on untouched roads, including ends at a junction with traffic lights (node 32185, `light=true`), has `precedenceNode0 = precedenceNode1 = 2`. The enum prints as a number; 2 is presumably `AUTO` (record order YES, NO, AUTO would be 0, 1, 2). To be confirmed by writing YES / NO and reading back.
+- Junction nodes carry a node config (`node config=true`) even without lights.
+
+## Stage 3: write mode (`content/priority_probe/tool/build.lua`)
+
+- Priority = `YES`, Give way = `NO`, Default = `AUTO`, applied to the road end nearest the cursor on click.
+- Replaces the segment by a copy with the changed `streetEdge`; refuses segments with edge objects. At each end node with a config: a crossing (3+ segments) keeps its settings, handed back with the replaced segment's number renewed (`-1`) in lane connections and crosswalks; a road end or joint gives them up. Same recipe as the reference mod's replacement of segments next to crossings.
+- After a build it logs `VERIFY` lines: the node's config counts before/after and every street segment at the node with its precedence at that node.
+- Lookups are suspended during and for 0.6 s after a build (asking about a not-yet-known entity is fatal).
 
 ## Stage 0 gate (console)
 

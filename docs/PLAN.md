@@ -41,11 +41,12 @@ Find out whether intersection priority (right of way) can be forced on Transport
 
 ## Write mode results (2026-11-15, Road_test.sav, T-junction at node 31154)
 
-- Values: `YES` = 0 (assumed, not yet written), `NO` = 1, `AUTO` = 2 (confirmed: untouched ends read 2, Give way wrote 1). So 2 is the default.
+- Values (all confirmed by write and read back): `YES` = 0, `NO` = 1, `AUTO` = 2. Untouched road ends are 2, so `AUTO` is the default.
 - Give way written on all three arms of node 31154: each click logged `SENDING`, `BUILT`, and `VERIFY` showed that end at `precedence=1`, the other ends still 2 until clicked, and the junction's config unchanged: `6 lane connections, 0 crosswalks, 0 light phases` before and after, every time. No refusal, no crash.
 - The replaced segment gets a new entity id (e.g. 31446 -> 31156), as expected; the node ids stay.
 - Clicking an end that already holds the value logs `already NO ... nothing to do` and does not build.
-- Not yet tested: `YES`, `Default` (back to 2), junction with traffic lights, edges with stops, save and reload, and whether vehicles behave differently (stage 4).
+- `YES` written and read back as 0 on 4 arms at two T-junctions (nodes 33148 and 31562, second session); every write again kept `6 lane connections, 0 crosswalks, 0 light phases`. Both junctions are now set as: the two main-road arms `YES`, the side arm `NO`.
+- Not yet tested: `Default` (back to 2), junction with traffic lights, edges with stops, save and reload, and whether vehicles behave differently (stage 4).
 
 ## Stage 0 gate (console)
 

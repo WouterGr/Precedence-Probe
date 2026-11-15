@@ -5,7 +5,7 @@ Setup: mod `presedence` enabled, `Road_test.sav`, tool ROADS > Tools > Priority 
 | # | Test | Result |
 |---|------|--------|
 | 0 | Write `NO` to one end, read it back (Read mode) | PASS: reads 1, lane connections unchanged |
-| 1 | T-junction: side arm `NO`, both main arms `YES`. Do side-road vehicles wait for the main road? | |
+| 1 | T-junction: side arm `NO`, both main arms `YES`. Do side-road vehicles wait for the main road? | Set up at nodes 33148 and 31562 (log, 09:46Z). In-game observation: pending |
 | 2 | Same junction, main road `YES` only: any difference from default? | |
 | 3 | All arms `YES`: deadlock? | |
 | 4 | Junction with traffic lights: does priority change anything? | |
@@ -13,6 +13,6 @@ Setup: mod `presedence` enabled, `Road_test.sav`, tool ROADS > Tools > Priority 
 | 6 | Save, reload: do the values survive? | |
 | 7 | Town rebuilds or upgrades the road: is the value reset? | |
 | 8 | `Default` restores 2 | |
-| 9 | `YES` writes 0 and reads back | |
+| 9 | `YES` writes 0 and reads back | PASS (4 arms, 2 junctions; lane connections 6 -> 6) |
 
 Notes on how to watch: use the traffic layer, or follow a vehicle on the side road arriving at the junction while the main road is busy.

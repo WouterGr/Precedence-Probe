@@ -73,8 +73,12 @@ local function proposalFor(hit, pref)
 	if old.roadType ~= nil then seg.comp.roadType = old.roadType end
 	if old.edgeDecorations ~= nil then seg.comp.edgeDecorations = old.edgeDecorations end
 	if old.roadDevelopmentLocked ~= nil then seg.comp.roadDevelopmentLocked = old.roadDevelopmentLocked end
-	if hit["end"] == 0 then s.precedenceNode0 = pref else s.precedenceNode1 = pref end
+	-- what the engine hands out is read-only ("cannot write to read only member"): the copy is changed
+	-- on the new segment, like the segment's other members
 	seg.streetEdge = s
+	if hit["end"] == 0 then seg.streetEdge.precedenceNode0 = pref else seg.streetEdge.precedenceNode1 = pref end
+	local written = (hit["end"] == 0) and seg.streetEdge.precedenceNode0 or seg.streetEdge.precedenceNode1
+	if tostring(written) ~= tostring(pref) then error("the value was not written as asked (" .. tostring(written) .. ")") end
 	local owned = component(e, CT.PLAYER_OWNED)
 	if owned ~= nil then seg.playerOwned = owned end
 	p.streetProposal.edgesToAdd = { seg }

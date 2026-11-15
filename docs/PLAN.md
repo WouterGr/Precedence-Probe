@@ -36,6 +36,7 @@ Find out whether intersection priority (right of way) can be forced on Transport
 - Priority = `YES`, Give way = `NO`, Default = `AUTO`, applied to the road end nearest the cursor on click.
 - Replaces the segment by a copy with the changed `streetEdge`; refuses segments with edge objects. At each end node with a config: a crossing (3+ segments) keeps its settings, handed back with the replaced segment's number renewed (`-1`) in lane connections and crosswalks; a road end or joint gives them up. Same recipe as the reference mod's replacement of segments next to crossings.
 - After a build it logs `VERIFY` lines: the node's config counts before/after and every street segment at the node with its precedence at that node.
+- First in-game write attempt failed with `cannot write to read only member 'precedenceNode0'`: a `BaseEdgeStreet` read with `getComponent` is read-only. Fix: assign it to `seg.streetEdge` first and set the member on that (writable like `seg.comp.node0`), then read it back before sending.
 - Lookups are suspended during and for 0.6 s after a build (asking about a not-yet-known entity is fatal).
 
 ## Stage 0 gate (console)

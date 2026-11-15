@@ -21,4 +21,4 @@ Notes on how to watch: use the traffic layer, or follow a vehicle on the side ro
 
 - Give way + slow at node 27175 (edge 28743): built, cut 20 m from the junction, junction config unchanged (6/0/0), slow piece reads back 3 m/s, other arms 22.2 m/s.
 - In game: side-road cars slow down, no longer enter at speed. Problem: the limit also applied to cars leaving the junction onto the side road (both directions slowed).
-- Change: only car lanes running into the junction are slowed now. Result: pending.
+- Change: only car lanes running into the junction are slowed now. Result: works (limit no longer applies to cars leaving). Remaining: with a steady stream on the main road, side-road cars still squeeze into gaps. Gap acceptance is engine-side with no API. Trying a lower speed (1.5 m/s) so cars come close to a standstill first.

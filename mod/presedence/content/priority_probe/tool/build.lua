@@ -57,7 +57,7 @@ end
 
 -- Slow approach (prototype): the give-way arm gets a short piece next to the junction whose car lanes have a
 -- very low speed limit, so vehicles roll up to the junction slowly instead of entering at speed.
-local SLOW_SPEED = 3.0        -- m/s (about 11 km/h) on the car lanes of the slow piece
+local SLOW_SPEED = 1.5        -- m/s (about 5 km/h) on the car lanes running into the junction
 local SLOW_LEN = 20.0         -- m from the junction's point: the length of the slow piece
 local FAR_MIN = 10.0          -- m: the piece left on the far side may not be shorter than this
 local SAMPLES = 64            -- pieces a segment's length is measured over

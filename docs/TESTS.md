@@ -16,3 +16,9 @@ Setup: mod `presedence` enabled, `Road_test.sav`, tool ROADS > Tools > Priority 
 | 9 | `YES` writes 0 and reads back | PASS (4 arms, 2 junctions; lane connections 6 -> 6) |
 
 Notes on how to watch: use the traffic layer, or follow a vehicle on the side road arriving at the junction while the main road is busy.
+
+## Slow approach prototype (2026-11-15)
+
+- Give way + slow at node 27175 (edge 28743): built, cut 20 m from the junction, junction config unchanged (6/0/0), slow piece reads back 3 m/s, other arms 22.2 m/s.
+- In game: side-road cars slow down, no longer enter at speed. Problem: the limit also applied to cars leaving the junction onto the side road (both directions slowed).
+- Change: only car lanes running into the junction are slowed now. Result: pending.

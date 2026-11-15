@@ -1,6 +1,6 @@
 # Precedence Probe — plan
 
-Status (2026-11-15): skeleton mod and console probes written, not yet run in game.
+Status (2026-11-15): skeleton verified in game (logs `[presedence] skeleton loaded, build 40425`). Console probes written, not yet run.
 
 ## Goal
 
@@ -14,8 +14,14 @@ Find out whether intersection priority (right of way) can be forced on Transport
 
 ## Findings from the game files (2026-11-15)
 
-1. **ROADS > Tools entries are `construction_tool` resources bound to a fixed set of native `ACTION_*` names** (e.g. `ACTION_LANE_MODIFIER_TOOL`, `ACTION_TRAFFIC_LIGHT_TOOL`, `ACTION_CROSSWALK_MODIFIER_TOOL`). No custom action is visible, so a mod cannot add a new native world tool the same way. React tools (`ToolReactUtil.registerToolWithWindow`) exist but the base game only uses them for windows (pause menu, statistics, music player, map editor).
-   - Revised UI plan: bare-bones UI is a mod button (`MainModButtonAreaExtension`) plus mouse picking in a GUI script (`api.gui.mouse.getTerrainPosition()`, mouse click events, `api.engine.util.findEntitiesInCircle(..., BASE_EDGE_STREET)`). The console probe tells us first whether the engine side works at all.
+1. **A mod CAN add a ROADS > Tools entry, via `ACTION_CUSTOM`.** The base game's own tools use fixed native actions (`ACTION_LANE_MODIFIER_TOOL`, ...), but Better Road Tools (mod.io 6527675, read only reference) shows the custom route:
+   - `content/<x>/menu/<tool>.res.lua`: `type = "construction_tool"`, `data.getDefinitionFn = { fileName = resolve("menu.script@getDefinition") }`. The game finds it by its file in `menu\`; nothing is registered at load.
+   - The function returns a definition with `action = "ACTION_CUSTOM"`, `customAction = { recipe = <react recipe>, customParam = {} }`, `menuCategory = { categories = { { category = "roads_tools", order = N } } }` (game tools use orders 100 to 1200; BRT uses 1300 to 1500), `icon` / `previewIcon` (TGA: icon 240x150 32 bpp, preview 720x405 24 bpp, named `<name>@2x.tga`), `params` (settings panel entries), `availability`, `builderAudioRes`.
+   - The recipe is `react.RegisterRecipe(name, function(params) if not params.isActive then return end; params.setActionFn(function() ... return builtin.ActionDescriptor{ tool = id, crosshair = true, children = { builtin.Selector{ onProcessMouseEvent = ... } }, onBack = params.abort } end, id) end)`, with `react = ug_require "::/gui/main/react.lua"` and `builtin = ug_require "::/gui/main/builtin.lua"`. Per-frame work in `react.onStep`; click handling in `Selector.onProcessMouseEvent` (`api.gui.mouse.Event.Type.Pressed`, `event.button == 0`).
+   - Picking a road: cursor = `api.gui.mouse.getTerrainPosition()` (check `hasTerrainPosition()` first), edges around it = `api.engine.util.octree.findEntitiesInCircle(Vec2f, radius, CT.BASE_EDGE)`, then filter with a `BASE_EDGE_STREET` component. Junction segments: `api.engine.system.streetSystem.getNodeStreetSegments(node)`.
+   - Build: `api.cmd.sendCommand(api.cmd.makeWorldBuildProposalCmd(proposal, context, false, true), function(res, success) ... end)`; errors in `res.resultProposalData.errorState.messages`. Preview: `builtin.ProposalViewer{ simpleProposal = ... }`; highlight: `builtin.EdgeRenderable`.
+   - Hazard (from BRT): `api.engine.getComponent` on an entity that does not exist yet (a segment just built) is fatal and `pcall` does not catch it. Guard with `api.engine.entityExists(e)` and wait about 0.6 s after a build.
+   - BRT is plain Lua (`.lua`), not Teal, and uses `mod.json` `runFn` / `postRunFn` only for load-time hooks; tools need none.
 2. **Write command in TF3 is `api.cmd.makeWorldBuildProposalCmd(proposal, context, ignoreErrors, playerInitiated)`** sent with `api.cmd.sendCommand`, not the TF2-style `make.buildProposal`.
 3. `BaseEdgeStreet.precedenceNode0/1` doc strings: "Precedence preference at first/second node". `Edge.precedence : boolean` is a field of the `Edge` record.
 
@@ -60,7 +66,7 @@ Stage 0 is the gate: the console exists, so we learn whether the idea works befo
 ## Mod design
 
 - Own `modId`, written from the public API docs only; no code copied from other mods.
-- Modes: **Read / Priority / Give way / Default**, behind a mod button (see finding 1; a native ROADS > Tools entry is not possible with the known actions).
+- One tool in ROADS > Tools (`ACTION_CUSTOM`, finding 1) with a mode setting: **Read / Priority / Give way / Default**.
 - Commands go through `api.cmd.sendCommand(api.cmd.makeWorldBuildProposalCmd(...))`. Check in stage 1 which script context (GUI vs game script) the TF3 API requires.
 
 ## Test matrix (stage 4)

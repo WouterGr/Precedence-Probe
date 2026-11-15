@@ -2,8 +2,8 @@
 -- Output lines start with "PP" and also go to crash_dump\stdout.txt.
 local CT = api.type.ComponentType
 local p = api.gui.mouse.getTerrainPosition()
-print("PP mouse", p[1], p[2], p[3])
-local es = api.engine.util.findEntitiesInCircle(api.type.Vec2f.new(p[1], p[2]), 40, CT.BASE_EDGE_STREET)
+print("PP mouse", p.x, p.y, p.z)
+local es = api.engine.util.octree.findEntitiesInCircle(api.type.Vec2f.new(p.x, p.y), 40, CT.BASE_EDGE_STREET)
 print("PP edges found", #es)
 for _, e in ipairs(es) do
   local s = api.engine.getComponent(e, CT.BASE_EDGE_STREET)

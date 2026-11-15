@@ -1,6 +1,6 @@
 # Precedence Probe — plan
 
-Status (2026-11-15): skeleton verified in game (logs `[presedence] skeleton loaded, build 40425`). Console probes written, not yet run.
+Status (2026-11-15): read-mode tool written (ROADS > Tools, untested in game). Skeleton verified in game (logs `[presedence] skeleton loaded, build 40425`). Console probes written, not yet run.
 
 ## Goal
 

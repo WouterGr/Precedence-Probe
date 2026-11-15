@@ -5,7 +5,7 @@ Setup: mod `presedence` enabled, `Road_test.sav`, tool ROADS > Tools > Priority 
 | # | Test | Result |
 |---|------|--------|
 | 0 | Write `NO` to one end, read it back (Read mode) | PASS: reads 1, lane connections unchanged |
-| 1 | T-junction: side arm `NO`, both main arms `YES`. Do side-road vehicles wait for the main road? | Set up at nodes 33148 and 31562 (log, 09:46Z). In-game observation: pending |
+| 1 | T-junction: side arm `NO`, both main arms `YES`. Do side-road vehicles wait for the main road? | Set up at nodes 33148 and 31562 (log, 09:46Z). In-game: PARTIAL. Side-road cars do yield, but they roll in without stopping, take the gap early and accelerate slowly, so main-road cars still brake. Fine in heavy traffic, weak in light traffic. |
 | 2 | Same junction, main road `YES` only: any difference from default? | |
 | 3 | All arms `YES`: deadlock? | |
 | 4 | Junction with traffic lights: does priority change anything? | |

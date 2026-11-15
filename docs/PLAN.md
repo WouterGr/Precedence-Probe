@@ -115,3 +115,15 @@ Stage 0 is the gate: the console exists, so we learn whether the idea works befo
 - https://wiki.transportfever3.com/script-doc/api/type.html
 - https://steamcommunity.com/app/3493540/discussions/0/588439600673976114/
 - https://wiki.transportfever3.com/doku.php?id=modding%3Ageneral%3Aguidelines
+
+## Behaviour finding: priority is yield-only (2026-11-15)
+
+In-game result: Priority/Give way changes behaviour (side-road vehicles give way), but there is no full stop. Side-road cars still enter small gaps and the main road brakes anyway.
+
+Engine search (`api/tealdef`): the only priority control is `BaseEdgeStreet.precedenceNode0/1` (YES/NO/AUTO). No stop-sign, stop-line or forced-wait setting exists. `VehicleOrder.waitingForSpace` and `waitingForTrafficLight` are read-only runtime state.
+
+Candidate approaches for a "stop first" mode:
+1. Slow approach zone: split the give-way arm near the junction and give the last few metres a very low speed limit (needs a slow street type from the mod).
+2. Larger gap requirement: no engine setting found, unlikely.
+3. Traffic light with a minimal phase: heavy and changes junction behaviour.
+Option 1 is the first to prototype.

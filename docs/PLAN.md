@@ -1,6 +1,6 @@
 # Precedence Probe — plan
 
-Status (2026-11-15): read mode verified in game (tool in ROADS > Tools works, all untouched road ends read precedence value 2). Write mode (stage 3) written, untested. Skeleton verified in game (logs `[presedence] skeleton loaded, build 40425`). Console probes written, not yet run.
+Status (2026-11-15): stages 1 to 3 verified in game. The precedence value can be written per road end and reads back; lane connections survive. In-game behaviour (does `NO`/`YES` change traffic?) still to test (stage 4) (logs `[presedence] skeleton loaded, build 40425`). Console probes written, not yet run.
 
 ## Goal
 
@@ -38,6 +38,14 @@ Find out whether intersection priority (right of way) can be forced on Transport
 - After a build it logs `VERIFY` lines: the node's config counts before/after and every street segment at the node with its precedence at that node.
 - First in-game write attempt failed with `cannot write to read only member 'precedenceNode0'`: a `BaseEdgeStreet` read with `getComponent` is read-only. Fix: assign it to `seg.streetEdge` first and set the member on that (writable like `seg.comp.node0`), then read it back before sending.
 - Lookups are suspended during and for 0.6 s after a build (asking about a not-yet-known entity is fatal).
+
+## Write mode results (2026-11-15, Road_test.sav, T-junction at node 31154)
+
+- Values: `YES` = 0 (assumed, not yet written), `NO` = 1, `AUTO` = 2 (confirmed: untouched ends read 2, Give way wrote 1). So 2 is the default.
+- Give way written on all three arms of node 31154: each click logged `SENDING`, `BUILT`, and `VERIFY` showed that end at `precedence=1`, the other ends still 2 until clicked, and the junction's config unchanged: `6 lane connections, 0 crosswalks, 0 light phases` before and after, every time. No refusal, no crash.
+- The replaced segment gets a new entity id (e.g. 31446 -> 31156), as expected; the node ids stay.
+- Clicking an end that already holds the value logs `already NO ... nothing to do` and does not build.
+- Not yet tested: `YES`, `Default` (back to 2), junction with traffic lights, edges with stops, save and reload, and whether vehicles behave differently (stage 4).
 
 ## Stage 0 gate (console)
 

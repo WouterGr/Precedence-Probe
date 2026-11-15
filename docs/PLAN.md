@@ -127,3 +127,30 @@ Candidate approaches for a "stop first" mode:
 2. Larger gap requirement: no engine setting found, unlikely.
 3. Traffic light with a minimal phase: heavy and changes junction behaviour.
 Option 1 is the first to prototype.
+
+## Findings: slow approach prototype (2026-11-15)
+
+Goal: make give-way vehicles come to (near) a stop before entering, since plain Give way (`precedence` NO) is only a yield.
+
+What was built (mode "Give way + slow", `build.lua`):
+- Cuts the picked arm 20 m (`SLOW_LEN`) from the junction point; arms shorter than 30 m (`SLOW_LEN` + `FAR_MIN`) are slowed whole instead.
+- The piece next to the junction gets Give way at the junction end and a low speed limit on its car lanes. The far piece is an unchanged copy.
+- Junction lane connections, crosswalks and light phases are handed back with the replaced segment's number renewed: verified unchanged (6/0/0).
+
+Engine facts learned:
+- Lane speed is per segment: `BaseEdge.laneConfigs[i].speed`, so no new road type is needed.
+- Lane writes only stick when each lane is changed on its own holder (a fresh `SegmentAndEntity` with the lane copied in, kept alive), read back, and the list then assigned to the segment. Writing `seg.comp.laneConfigs[i].speed = v` directly fails ("speed was not written as asked").
+- A lane's `forward` flag is its direction relative to the segment: lanes running into node0 have `forward = false`, into node1 `forward = true`.
+- Lua pitfall: `cond and false or nil` yields nil; use an explicit function when the value can be `false`.
+- Files committed to the device before the staged upload has synced leave the old file in place. Check the size on the device after each deploy.
+
+In-game results:
+1. Speed 3 m/s, both directions slowed: side-road cars slow down and no longer enter at speed. Cars leaving the junction onto the side road were slowed too: not acceptable.
+2. Only lanes running into the junction slowed: fixes the outgoing problem.
+3. With a steady stream on the main road, side-road cars still squeeze into gaps. Gap acceptance is decided by the engine; no setting for it exists in the typings. Next test: inbound speed lowered to 1.5 m/s (`SLOW_SPEED`). Result pending.
+
+Open items and options if 1.5 m/s is not enough:
+- Add a very short final piece with near-zero speed after the 20 m slow piece (two cuts).
+- A traffic light on the side arm (heavy, changes junction behaviour).
+- Default mode does not yet restore a slowed piece's speed (needs the road template's lane speeds).
+- Untested: slow piece at a traffic-light junction, save/reload, town rebuild resetting the pieces, vehicle queues backing up on the slowed arm.

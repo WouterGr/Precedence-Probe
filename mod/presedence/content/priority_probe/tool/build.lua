@@ -152,13 +152,24 @@ local function copyOf(e, _old, _s, id, node0, node1, line, slow)
 		seg.comp.tangent1 = vec(line.tangent1)
 	end
 	if slow then
-		-- lanes of the new segment are its own: changed there and read back
-		for i = 1, #seg.comp.laneConfigs do
-			if isCarLane(seg.comp.laneConfigs[i]) and seg.comp.laneConfigs[i].speed > SLOW_SPEED then
-				seg.comp.laneConfigs[i].speed = SLOW_SPEED
-				if math.abs(seg.comp.laneConfigs[i].speed - SLOW_SPEED) > 0.01 then error("a lane's speed was not written as asked") end
+		-- a lane is changed on a holder of its own (kept alive), then the list of such lanes is handed to the
+		-- segment; every write is read back
+		local lanes, changed = {}, 0
+		for i = 1, #old.laneConfigs do
+			local tmp = api.type.SegmentAndEntity.new()
+			tmp.comp.laneConfigs = { old.laneConfigs[i] }
+			keepAlive(tmp)
+			local own = tmp.comp.laneConfigs[1]
+			if isCarLane(own) and own.speed > SLOW_SPEED then
+				own.speed = SLOW_SPEED
+				if math.abs(own.speed - SLOW_SPEED) > 0.01 then error("a lane's speed was not written as asked") end
+				changed = changed + 1
 			end
+			lanes[i] = own
 		end
+		seg.comp.laneConfigs = lanes
+		local low = carSpeed(seg.comp)
+		if changed > 0 and (low == nil or low > SLOW_SPEED + 0.01) then error("the slow lanes were not taken by the segment (" .. tostring(low) .. ")") end
 	end
 	-- what the engine hands out is read-only ("cannot write to read only member"): the copy is changed
 	-- on the new segment, like the segment's other members

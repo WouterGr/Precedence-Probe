@@ -1,0 +1,15 @@
+{
+    "authors": [
+        {
+            "name": "WouterGr",
+            "role": "CREATOR"
+        }
+    ],
+    "description": "Test mod: can road intersection priority (right of way) be set per road end? Work in progress.",
+    "name": "Priority Probe",
+    "summary": "Experiment: set lane/road priority at road intersections.",
+    "tags": [
+        "Script Mod"
+    ],
+    "url": "https://github.com/WouterGr/precedence-probe"
+}

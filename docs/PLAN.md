@@ -22,16 +22,22 @@ Find out whether intersection priority (right of way) can be forced on Transport
 
 ## Stages
 
-| # | Stage | Est. | Who | Done when |
-|---|-------|------|-----|-----------|
-| 0 | Console probe | 30 min | Wouter + Claude | Precedence values read from the in-game Lua console on one junction (skip if TF3 has no console) |
-| 1 | Skeleton | 30 min | Claude | Mod loads, tool shows in ROADS > Tools |
-| 2 | Read mode | 1 h | Claude | Clicking a road end logs `precedenceNode0/1`, `Edge.precedence`, node + segment IDs, node config, traffic-light presence |
-| 3 | Write mode | 2 h | Claude | Clicking sets `YES`/`NO`/`AUTO` on that end; road, lanes and lights unchanged afterwards |
-| 4 | Behaviour tests | 1 h | Wouter | Matrix below filled in `docs/TESTS.md` |
-| 5 | Go / no-go | 15 min | Both | Decision on a real feature (main-road mode, optional give-way paint, EN/RU/DE/NL strings) |
+| # | Stage | Est. | Done when |
+|---|-------|------|-----------|
+| 0 | Console probe (optional) | 30 min | Precedence values read from an in-game Lua console on one junction. Skipped if TF3 has no console |
+| 1 | Skeleton | 30 min | Mod loads, tool shows in ROADS > Tools, a startup line appears in the game log |
+| 2 | Read mode | 1 h | Clicking a road end writes `precedenceNode0/1`, `Edge.precedence`, node + segment IDs, node config and traffic-light presence to the game log |
+| 3 | Write mode | 2 h | Clicking sets `YES`/`NO`/`AUTO` on that end; road, lanes and lights unchanged afterwards |
+| 4 | Behaviour tests | 1 h | Matrix below filled in `docs/TESTS.md` (in-game testing) |
+| 5 | Go / no-go | 15 min | Decision on a real feature (main-road mode, optional give-way paint, EN/RU/DE/NL strings) |
 
-Stage 0 is new: if the console can read and propose, we learn whether the idea works before writing any UI. If the console shows precedence has no effect, we stop after stage 0.
+Stage 0 is only worth doing if a console exists: it would show whether the idea works before any UI is written. Without a console, stage 2 read mode does the same job through the game log file.
+
+## Platform
+
+- Developed and tested on Steam for Windows.
+- The mod must work on every launcher (Steam, GOG, Epic) and through the Mod Hub. So: no hard-coded install or user paths, no launcher-specific APIs, only the documented mod folder structure and the scripting API.
+- All diagnostic output goes through `print()` to the game log file, which is the main feedback channel during testing.
 
 ## Mod design
 

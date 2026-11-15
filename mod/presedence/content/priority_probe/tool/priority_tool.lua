@@ -11,6 +11,7 @@ local MODES = {
 	{ id = "read", label = "Read" },
 	{ id = "priority", label = "Priority" },
 	{ id = "giveway", label = "Give way" },
+	{ id = "slow", label = "Give way + slow" },
 	{ id = "default", label = "Default" },
 }
 local REFRESH = 0.1          -- s between two looks under the cursor
@@ -115,7 +116,7 @@ local recipe = react.RegisterRecipe("PresedencePriorityTool", function(params)
 									say("READ " .. tostring(describe(h)))
 								else
 									say(mode.id .. ": " .. tostring(describe(h)))
-									Build.send(h, Build.VALUES[mode.id], say)
+									Build.send(h, Build.VALUES[mode.id], say, mode.id == "slow")
 									hit:set(nil)
 								end
 							end)

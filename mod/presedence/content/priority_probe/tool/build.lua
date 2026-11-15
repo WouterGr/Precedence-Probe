@@ -55,16 +55,86 @@ local function configText(node)
 	return text
 end
 
--- the proposal that replaces hit.edge by a copy with the wanted precedence at hit["end"]
-local function proposalFor(hit, pref)
-	local e = hit.edge
+-- Slow approach (prototype): the give-way arm gets a short piece next to the junction whose car lanes have a
+-- very low speed limit, so vehicles roll up to the junction slowly instead of entering at speed.
+local SLOW_SPEED = 3.0        -- m/s (about 11 km/h) on the car lanes of the slow piece
+local SLOW_LEN = 20.0         -- m from the junction's point: the length of the slow piece
+local FAR_MIN = 10.0          -- m: the piece left on the far side may not be shorter than this
+local SAMPLES = 64            -- pieces a segment's length is measured over
+
+local function allows(lc, name)
+	local yes = false
+	pcall(function() yes = lc.transportModes[api.type["enum"].TransportMode[name]] == true end)
+	return yes
+end
+local function isCarLane(lc) return allows(lc, "CAR") or allows(lc, "BUS") or allows(lc, "TRUCK") end
+
+-- the lowest speed of a segment's car lanes (nil: none)
+local function carSpeed(c)
+	local low = nil
+	pcall(function()
+		for i = 1, #c.laneConfigs do
+			local lc = c.laneConfigs[i]
+			if isCarLane(lc) and (low == nil or lc.speed < low) then low = lc.speed end
+		end
+	end)
+	return low
+end
+
+-- a segment's line (cubic Hermite): a point and its direction at parameter t
+local function onLine(c, t)
+	local t2, t3 = t * t, t * t * t
+	local h00, h10, h01, h11 = 2 * t3 - 3 * t2 + 1, t3 - 2 * t2 + t, -2 * t3 + 3 * t2, t3 - t2
+	local d00, d10, d01, d11 = 6 * t2 - 6 * t, 3 * t2 - 4 * t + 1, -6 * t2 + 6 * t, 3 * t2 - 2 * t
+	local p0, p1, a, b = c.position0, c.position1, c.tangent0, c.tangent1
+	local function mix(k0, k1, k2, k3, f) return k0 * p0[f] + k1 * a[f] + k2 * p1[f] + k3 * b[f] end
+	return { x = mix(h00, h10, h01, h11, "x"), y = mix(h00, h10, h01, h11, "y"), z = mix(h00, h10, h01, h11, "z") },
+		{ x = mix(d00, d10, d01, d11, "x"), y = mix(d00, d10, d01, d11, "y"), z = mix(d00, d10, d01, d11, "z") }
+end
+
+-- the metres at each of SAMPLES + 1 places along the line, and the whole length
+local function measure(c)
+	local at, sum, last = { 0 }, 0, nil
+	for i = 0, SAMPLES do
+		local p = onLine(c, i / SAMPLES)
+		if last ~= nil then
+			sum = sum + math.sqrt((p.x - last.x) ^ 2 + (p.y - last.y) ^ 2)
+			at[i + 1] = sum
+		end
+		last = p
+	end
+	return at, sum
+end
+
+local function paramAt(at, m)
+	for i = 1, SAMPLES do
+		if m <= at[i + 1] then
+			local span = at[i + 1] - at[i]
+			return ((i - 1) + ((span > 1e-9) and (m - at[i]) / span or 0)) / SAMPLES
+		end
+	end
+	return 1
+end
+
+-- the piece of the line between two parameters
+local function piece(c, ta, tb)
+	local k = tb - ta
+	local pa, da = onLine(c, ta)
+	local pb, db = onLine(c, tb)
+	local function sc(d) return { x = d.x * k, y = d.y * k, z = d.z * k } end
+	return { position0 = pa, position1 = pb, tangent0 = sc(da), tangent1 = sc(db) }
+end
+
+local function vec(p) return api.type.Vec3f.new(p.x, p.y, p.z) end
+
+-- a copy of the old segment as a new one (number id) between two points; line = nil keeps its line
+local function copyOf(e, _old, _s, id, node0, node1, line, slow)
+	-- each piece from a reading of its own, so that two pieces cannot share anything
 	local old = component(e, CT.BASE_EDGE)
 	local s = component(e, CT.BASE_EDGE_STREET)
 	if old == nil or s == nil then error("the segment is gone") end
-	if #old.objects > 0 then error("this segment has stops, signals or signs on it; not changed") end
-	local p = api.type.SimpleProposal.new()
 	local seg = api.type.SegmentAndEntity.new()
-	seg.entity = -1
+	seg.entity = id
 	seg.type = 0
 	seg.comp = old
 	if old.laneConfigs ~= nil then seg.comp.laneConfigs = old.laneConfigs end
@@ -73,19 +143,34 @@ local function proposalFor(hit, pref)
 	if old.roadType ~= nil then seg.comp.roadType = old.roadType end
 	if old.edgeDecorations ~= nil then seg.comp.edgeDecorations = old.edgeDecorations end
 	if old.roadDevelopmentLocked ~= nil then seg.comp.roadDevelopmentLocked = old.roadDevelopmentLocked end
+	seg.comp.node0 = node0
+	seg.comp.node1 = node1
+	if line ~= nil then
+		seg.comp.position0 = vec(line.position0)
+		seg.comp.position1 = vec(line.position1)
+		seg.comp.tangent0 = vec(line.tangent0)
+		seg.comp.tangent1 = vec(line.tangent1)
+	end
+	if slow then
+		-- lanes of the new segment are its own: changed there and read back
+		for i = 1, #seg.comp.laneConfigs do
+			if isCarLane(seg.comp.laneConfigs[i]) and seg.comp.laneConfigs[i].speed > SLOW_SPEED then
+				seg.comp.laneConfigs[i].speed = SLOW_SPEED
+				if math.abs(seg.comp.laneConfigs[i].speed - SLOW_SPEED) > 0.01 then error("a lane's speed was not written as asked") end
+			end
+		end
+	end
 	-- what the engine hands out is read-only ("cannot write to read only member"): the copy is changed
 	-- on the new segment, like the segment's other members
 	seg.streetEdge = s
-	if hit["end"] == 0 then seg.streetEdge.precedenceNode0 = pref else seg.streetEdge.precedenceNode1 = pref end
-	local written = (hit["end"] == 0) and seg.streetEdge.precedenceNode0 or seg.streetEdge.precedenceNode1
-	if tostring(written) ~= tostring(pref) then error("the value was not written as asked (" .. tostring(written) .. ")") end
 	local owned = component(e, CT.PLAYER_OWNED)
 	if owned ~= nil then seg.playerOwned = owned end
-	p.streetProposal.edgesToAdd = { seg }
-	p.streetProposal.edgesToRemove = { e }
+	return seg
+end
 
-	-- the settings at both ends of the segment: a road end or plain joint gives them up with the build; a
-	-- crossing keeps them, handed back with this segment's number renewed
+-- the settings at both ends of the old segment: a road end or plain joint gives them up with the build; a
+-- crossing keeps them, handed back with this segment's number renewed (idAt[node] = the new segment there)
+local function settingsFor(p, e, old, idAt)
 	local configAdds, toRemove, notes, done = {}, {}, {}, {}
 	for _, node in ipairs({ old.node0, old.node1 }) do
 		if not done[node] then
@@ -100,15 +185,15 @@ local function proposalFor(hit, pref)
 					local connections, renewed = {}, 0
 					for i = 1, #cfg.laneConnections do
 						local lc = cfg.laneConnections[i]
-						if lc.segment0 == e then lc.segment0 = -1; renewed = renewed + 1 end
-						if lc.segment1 == e then lc.segment1 = -1; renewed = renewed + 1 end
+						if lc.segment0 == e then lc.segment0 = idAt[node]; renewed = renewed + 1 end
+						if lc.segment1 == e then lc.segment1 = idAt[node]; renewed = renewed + 1 end
 						connections[#connections + 1] = lc
 					end
 					entry.comp.laneConnections = connections
 					local walks = {}
 					for i = 1, #cfg.crosswalks do
 						local w = cfg.crosswalks[i]
-						walks[#walks + 1] = (w == e) and -1 or w
+						walks[#walks + 1] = (w == e) and idAt[node] or w
 					end
 					entry.comp.crosswalks = walks
 					keepAlive(entry)
@@ -126,6 +211,55 @@ local function proposalFor(hit, pref)
 	end
 	if #configAdds > 0 then p.streetProposal.nodeConfigsToAdd = configAdds end
 	if #toRemove > 0 then p.streetProposal.nodeConfigsToRemove = toRemove end
+	return notes
+end
+
+local function setPrecedence(seg, whichEnd, pref)
+	if whichEnd == 0 then seg.streetEdge.precedenceNode0 = pref else seg.streetEdge.precedenceNode1 = pref end
+	local written = (whichEnd == 0) and seg.streetEdge.precedenceNode0 or seg.streetEdge.precedenceNode1
+	if tostring(written) ~= tostring(pref) then error("the value was not written as asked (" .. tostring(written) .. ")") end
+end
+
+-- the proposal that replaces hit.edge by a copy with the wanted precedence at hit["end"]; slow = the copy next
+-- to the junction gets a low speed limit (the segment is cut for it when it is long enough)
+local function proposalFor(hit, pref, slow)
+	local e = hit.edge
+	local old = component(e, CT.BASE_EDGE)
+	local s = component(e, CT.BASE_EDGE_STREET)
+	if old == nil or s == nil then error("the segment is gone") end
+	if #old.objects > 0 then error("this segment has stops, signals or signs on it; not changed") end
+	local p = api.type.SimpleProposal.new()
+	local notes = {}
+	local idAt = {}
+	local whichEnd = hit["end"]
+	local junction = (whichEnd == 0) and old.node0 or old.node1
+	local at, length = measure(old)
+	if slow and length >= SLOW_LEN + FAR_MIN then
+		-- cut: the point -1, the pieces -2 (node0 side) and -3 (node1 side)
+		local tc = (whichEnd == 0) and paramAt(at, SLOW_LEN) or paramAt(at, length - SLOW_LEN)
+		local line1, line2 = piece(old, 0, tc), piece(old, tc, 1)
+		local point = api.type.NodeAndEntity.new()
+		point.entity = -1
+		point.comp.position = vec(line1.position1)
+		local seg1 = copyOf(e, old, s, -2, old.node0, -1, line1, whichEnd == 0)
+		local seg2 = copyOf(e, old, s, -3, -1, old.node1, line2, whichEnd == 1)
+		if whichEnd == 0 then setPrecedence(seg1, 0, pref) else setPrecedence(seg2, 1, pref) end
+		p.streetProposal.edgesToAdd = { seg1, seg2 }
+		p.streetProposal.nodesToAdd = { point }
+		idAt[old.node0] = -2
+		idAt[old.node1] = -3
+		notes[#notes + 1] = string.format("CUT at %.1f m from node %d (segment %.1f m): slow piece %d, car lanes %.1f m/s",
+			SLOW_LEN, junction, length, whichEnd == 0 and -2 or -3, SLOW_SPEED)
+	else
+		local seg = copyOf(e, old, s, -1, old.node0, old.node1, nil, slow)
+		setPrecedence(seg, whichEnd, pref)
+		p.streetProposal.edgesToAdd = { seg }
+		idAt[old.node0] = -1
+		idAt[old.node1] = -1
+		if slow then notes[#notes + 1] = string.format("segment is %.1f m, too short to cut: all of it slow (%.1f m/s)", length, SLOW_SPEED) end
+	end
+	p.streetProposal.edgesToRemove = { e }
+	for _, line in ipairs(settingsFor(p, e, old, idAt)) do notes[#notes + 1] = line end
 	return p, notes
 end
 
@@ -139,8 +273,8 @@ local function verify(node, before, say)
 		local s = component(segs[i], CT.BASE_EDGE_STREET)
 		if c ~= nil and s ~= nil then
 			local which = (c.node0 == node) and 0 or 1
-			say(string.format("VERIFY   edge %d, end %d: precedence=%s; lanes=%d", segs[i], which,
-				tostring((which == 0) and s.precedenceNode0 or s.precedenceNode1), #c.laneConfigs))
+			say(string.format("VERIFY   edge %d, end %d: precedence=%s; lanes=%d; car speed=%s", segs[i], which,
+				tostring((which == 0) and s.precedenceNode0 or s.precedenceNode1), #c.laneConfigs, tostring(carSpeed(c))))
 		end
 	end
 end
@@ -164,7 +298,7 @@ local function tick(time, say)
 end
 
 -- start the build: value is "YES" | "NO" | "AUTO"
-local function send(hit, value, say)
+local function send(hit, value, say, slow)
 	if BUILD.pending then return end
 	local enum = api.type["enum"].PrecedencePreference
 	if enum == nil or enum[value] == nil then error("PrecedencePreference." .. value .. " is not available") end
@@ -172,12 +306,15 @@ local function send(hit, value, say)
 	local s = component(hit.edge, CT.BASE_EDGE_STREET)
 	if s == nil then error("the segment is gone") end
 	local current = (hit["end"] == 0) and s.precedenceNode0 or s.precedenceNode1
-	if tostring(current) == tostring(pref) then
+	local edgeNow = component(hit.edge, CT.BASE_EDGE)
+	local lowNow = edgeNow ~= nil and carSpeed(edgeNow) or nil
+	local alreadySlow = (not slow) or (lowNow ~= nil and lowNow <= SLOW_SPEED + 0.1)
+	if tostring(current) == tostring(pref) and alreadySlow then
 		say(string.format("edge %d end %d already %s (%s); nothing to do", hit.edge, hit["end"], value, tostring(current)))
 		return
 	end
 	local before = configText(hit.node)
-	local proposal, notes = proposalFor(hit, pref)
+	local proposal, notes = proposalFor(hit, pref, slow)
 	say(string.format("SENDING edge %d end %d: %s -> %s (%s)", hit.edge, hit["end"], tostring(current), value, tostring(pref)))
 	for _, line in ipairs(notes) do say("   " .. line) end
 	local now = api.util.getApplicationTime()
@@ -202,4 +339,4 @@ local function send(hit, value, say)
 	end)
 end
 
-return { send = send, tick = tick, busy = busy, VALUES = { priority = "YES", giveway = "NO", default = "AUTO" } }
+return { send = send, tick = tick, busy = busy, VALUES = { priority = "YES", giveway = "NO", slow = "NO", default = "AUTO" } }
